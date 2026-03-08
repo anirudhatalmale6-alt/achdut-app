@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "290008916934",
+    "project_id": "achdut-uqtbsu",
+    "storage_bucket": "achdut-uqtbsu.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:290008916934:android:b8e47ce896791f8f9988c7",
+        "android_client_info": {
+          "package_name": "com.achdut.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "290008916934-p1886lkuttm0ng03qka6dnrep01ns1oa.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.achdut.app",
+            "certificate_hash": "9bbb3186b2189ef16d8f272bdab59362c395cbb4"
+          }
+        },
+        {
+          "client_id": "290008916934-o8g2m935lmsa3os9mngga6ch0nh296ol.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCNo9PcqkkR_QiJsjA4IGdjKaP1k857hCc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "290008916934-o8g2m935lmsa3os9mngga6ch0nh296ol.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "290008916934-55dr6tlim78ihgqorpjkuc0p2v8abqjn.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.achdut.app"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
