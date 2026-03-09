@@ -36,6 +36,10 @@ class CreateAccountModel extends FlutterFlowModel<CreateAccountWidget> {
   late bool passwordVisibility2;
   String? Function(BuildContext, String?)?
       confirmPasswordTextControllerValidator;
+  // State field(s) for JobTitle TextField widget.
+  FocusNode? jobTitleFocusNode;
+  TextEditingController? jobTitleTextController;
+  String? Function(BuildContext, String?)? jobTitleTextControllerValidator;
   // State field(s) for Checkbox widget.
   bool? checkboxValue;
 
@@ -58,5 +62,8 @@ class CreateAccountModel extends FlutterFlowModel<CreateAccountWidget> {
 
     textFieldFocusNode4?.dispose();
     confirmPasswordTextController?.dispose();
+
+    jobTitleFocusNode?.dispose();
+    jobTitleTextController?.dispose();
   }
 }

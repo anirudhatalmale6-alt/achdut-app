@@ -168,7 +168,7 @@ class _PosteWidgetState extends State<PosteWidget> {
                       size: 22.0,
                     ),
                     onPressed: () {
-                      // Search functionality
+                      context.pushNamed(SearchPeopleWidget.routeName);
                     },
                   ),
                   FlutterFlowIconButton(

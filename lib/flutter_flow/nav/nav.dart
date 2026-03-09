@@ -111,6 +111,11 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
           name: CreatePostPageWidget.routeName,
           path: CreatePostPageWidget.routePath,
           builder: (context, params) => CreatePostPageWidget(),
+        ),
+        FFRoute(
+          name: SearchPeopleWidget.routeName,
+          path: SearchPeopleWidget.routePath,
+          builder: (context, params) => SearchPeopleWidget(),
         )
       ].map((r) => r.toRoute(appStateNotifier)).toList(),
     );
