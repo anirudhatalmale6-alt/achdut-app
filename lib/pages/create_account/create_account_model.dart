@@ -40,6 +40,14 @@ class CreateAccountModel extends FlutterFlowModel<CreateAccountWidget> {
   FocusNode? jobTitleFocusNode;
   TextEditingController? jobTitleTextController;
   String? Function(BuildContext, String?)? jobTitleTextControllerValidator;
+  // State field(s) for PhoneNumber TextField widget.
+  FocusNode? phoneNumberFocusNode;
+  TextEditingController? phoneNumberTextController;
+  String? Function(BuildContext, String?)? phoneNumberTextControllerValidator;
+  // State field(s) for ServiceDescription TextField widget.
+  FocusNode? serviceDescriptionFocusNode;
+  TextEditingController? serviceDescriptionTextController;
+  String? Function(BuildContext, String?)? serviceDescriptionTextControllerValidator;
   // State field(s) for Checkbox widget.
   bool? checkboxValue;
 
@@ -65,5 +73,11 @@ class CreateAccountModel extends FlutterFlowModel<CreateAccountWidget> {
 
     jobTitleFocusNode?.dispose();
     jobTitleTextController?.dispose();
+
+    phoneNumberFocusNode?.dispose();
+    phoneNumberTextController?.dispose();
+
+    serviceDescriptionFocusNode?.dispose();
+    serviceDescriptionTextController?.dispose();
   }
 }

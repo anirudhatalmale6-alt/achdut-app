@@ -116,6 +116,16 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
           name: SearchPeopleWidget.routeName,
           path: SearchPeopleWidget.routePath,
           builder: (context, params) => SearchPeopleWidget(),
+        ),
+        FFRoute(
+          name: ProfileWidget.routeName,
+          path: ProfileWidget.routePath,
+          builder: (context, params) => ProfileWidget(),
+        ),
+        FFRoute(
+          name: ConnectionsWidget.routeName,
+          path: ConnectionsWidget.routePath,
+          builder: (context, params) => ConnectionsWidget(),
         )
       ].map((r) => r.toRoute(appStateNotifier)).toList(),
     );

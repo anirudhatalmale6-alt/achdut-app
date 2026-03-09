@@ -201,6 +201,30 @@ class _PosteWidgetState extends State<PosteWidget> {
           centerTitle: false,
           elevation: 0.0,
         ),
+        bottomNavigationBar: BottomNavigationBar(
+          currentIndex: 0,
+          type: BottomNavigationBarType.fixed,
+          backgroundColor: FlutterFlowTheme.of(context).secondaryBackground,
+          selectedItemColor: FlutterFlowTheme.of(context).primary,
+          unselectedItemColor: FlutterFlowTheme.of(context).secondaryText,
+          selectedLabelStyle: GoogleFonts.inter(fontSize: 12.0, fontWeight: FontWeight.w600),
+          unselectedLabelStyle: GoogleFonts.inter(fontSize: 12.0),
+          onTap: (index) {
+            if (index == 1) {
+              context.pushNamed(SearchPeopleWidget.routeName);
+            } else if (index == 2) {
+              context.pushNamed(ConnectionsWidget.routeName);
+            } else if (index == 3) {
+              context.pushNamed(ProfileWidget.routeName);
+            }
+          },
+          items: [
+            BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Feed'),
+            BottomNavigationBarItem(icon: Icon(Icons.search_rounded), label: 'Search'),
+            BottomNavigationBarItem(icon: Icon(Icons.people_rounded), label: 'Connections'),
+            BottomNavigationBarItem(icon: Icon(Icons.person_rounded), label: 'Profile'),
+          ],
+        ),
         body: Column(
           mainAxisSize: MainAxisSize.max,
           children: [

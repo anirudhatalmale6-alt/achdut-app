@@ -49,6 +49,12 @@ class _CreateAccountWidgetState extends State<CreateAccountWidget> {
 
     _model.jobTitleTextController ??= TextEditingController();
     _model.jobTitleFocusNode ??= FocusNode();
+
+    _model.phoneNumberTextController ??= TextEditingController();
+    _model.phoneNumberFocusNode ??= FocusNode();
+
+    _model.serviceDescriptionTextController ??= TextEditingController();
+    _model.serviceDescriptionFocusNode ??= FocusNode();
   }
 
   @override
@@ -688,6 +694,191 @@ class _CreateAccountWidgetState extends State<CreateAccountWidget> {
                                           CrossAxisAlignment.start,
                                       children: [
                                         Text(
+                                          'Phone Number',
+                                          style: FlutterFlowTheme.of(context)
+                                              .labelLarge
+                                              .override(
+                                                font: GoogleFonts.inter(
+                                                  fontWeight: FontWeight.w600,
+                                                  fontStyle:
+                                                      FlutterFlowTheme.of(context)
+                                                          .labelLarge
+                                                          .fontStyle,
+                                                ),
+                                                letterSpacing: 0.0,
+                                                fontWeight: FontWeight.w600,
+                                                fontStyle:
+                                                    FlutterFlowTheme.of(context)
+                                                        .labelLarge
+                                                        .fontStyle,
+                                              ),
+                                        ),
+                                        TextFormField(
+                                          controller:
+                                              _model.phoneNumberTextController,
+                                          focusNode: _model.phoneNumberFocusNode,
+                                          autofocus: false,
+                                          textInputAction: TextInputAction.next,
+                                          obscureText: false,
+                                          decoration: InputDecoration(
+                                            hintText: 'Enter your phone number',
+                                            hintStyle:
+                                                FlutterFlowTheme.of(context)
+                                                    .bodyMedium
+                                                    .override(
+                                                      font: GoogleFonts.inter(),
+                                                      color:
+                                                          FlutterFlowTheme.of(context)
+                                                              .secondaryText,
+                                                      letterSpacing: 0.0,
+                                                    ),
+                                            enabledBorder: OutlineInputBorder(
+                                              borderSide: BorderSide(
+                                                color: FlutterFlowTheme.of(context).alternate,
+                                                width: 1.5,
+                                              ),
+                                              borderRadius: BorderRadius.circular(12.0),
+                                            ),
+                                            focusedBorder: OutlineInputBorder(
+                                              borderSide: BorderSide(
+                                                color: FlutterFlowTheme.of(context).primary,
+                                                width: 1.5,
+                                              ),
+                                              borderRadius: BorderRadius.circular(12.0),
+                                            ),
+                                            errorBorder: OutlineInputBorder(
+                                              borderSide: BorderSide(
+                                                color: FlutterFlowTheme.of(context).error,
+                                                width: 1.5,
+                                              ),
+                                              borderRadius: BorderRadius.circular(12.0),
+                                            ),
+                                            focusedErrorBorder: OutlineInputBorder(
+                                              borderSide: BorderSide(
+                                                color: FlutterFlowTheme.of(context).error,
+                                                width: 1.5,
+                                              ),
+                                              borderRadius: BorderRadius.circular(12.0),
+                                            ),
+                                            filled: true,
+                                            fillColor: FlutterFlowTheme.of(context).secondaryBackground,
+                                            contentPadding: EdgeInsetsDirectional.fromSTEB(16.0, 16.0, 16.0, 16.0),
+                                            prefixIcon: Icon(
+                                              Icons.phone_outlined,
+                                              color: FlutterFlowTheme.of(context).secondaryText,
+                                              size: 20.0,
+                                            ),
+                                          ),
+                                          style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                                font: GoogleFonts.inter(),
+                                                fontSize: 15.0,
+                                                letterSpacing: 0.0,
+                                              ),
+                                          keyboardType: TextInputType.phone,
+                                          cursorColor: FlutterFlowTheme.of(context).primary,
+                                        ),
+                                      ].divide(SizedBox(height: 6.0)),
+                                    ),
+                                    Column(
+                                      mainAxisSize: MainAxisSize.max,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Service Description',
+                                          style: FlutterFlowTheme.of(context)
+                                              .labelLarge
+                                              .override(
+                                                font: GoogleFonts.inter(
+                                                  fontWeight: FontWeight.w600,
+                                                  fontStyle:
+                                                      FlutterFlowTheme.of(context)
+                                                          .labelLarge
+                                                          .fontStyle,
+                                                ),
+                                                letterSpacing: 0.0,
+                                                fontWeight: FontWeight.w600,
+                                                fontStyle:
+                                                    FlutterFlowTheme.of(context)
+                                                        .labelLarge
+                                                        .fontStyle,
+                                              ),
+                                        ),
+                                        TextFormField(
+                                          controller:
+                                              _model.serviceDescriptionTextController,
+                                          focusNode: _model.serviceDescriptionFocusNode,
+                                          autofocus: false,
+                                          textInputAction: TextInputAction.newline,
+                                          obscureText: false,
+                                          maxLines: 3,
+                                          decoration: InputDecoration(
+                                            hintText: 'Describe your services...',
+                                            hintStyle:
+                                                FlutterFlowTheme.of(context)
+                                                    .bodyMedium
+                                                    .override(
+                                                      font: GoogleFonts.inter(),
+                                                      color:
+                                                          FlutterFlowTheme.of(context)
+                                                              .secondaryText,
+                                                      letterSpacing: 0.0,
+                                                    ),
+                                            enabledBorder: OutlineInputBorder(
+                                              borderSide: BorderSide(
+                                                color: FlutterFlowTheme.of(context).alternate,
+                                                width: 1.5,
+                                              ),
+                                              borderRadius: BorderRadius.circular(12.0),
+                                            ),
+                                            focusedBorder: OutlineInputBorder(
+                                              borderSide: BorderSide(
+                                                color: FlutterFlowTheme.of(context).primary,
+                                                width: 1.5,
+                                              ),
+                                              borderRadius: BorderRadius.circular(12.0),
+                                            ),
+                                            errorBorder: OutlineInputBorder(
+                                              borderSide: BorderSide(
+                                                color: FlutterFlowTheme.of(context).error,
+                                                width: 1.5,
+                                              ),
+                                              borderRadius: BorderRadius.circular(12.0),
+                                            ),
+                                            focusedErrorBorder: OutlineInputBorder(
+                                              borderSide: BorderSide(
+                                                color: FlutterFlowTheme.of(context).error,
+                                                width: 1.5,
+                                              ),
+                                              borderRadius: BorderRadius.circular(12.0),
+                                            ),
+                                            filled: true,
+                                            fillColor: FlutterFlowTheme.of(context).secondaryBackground,
+                                            contentPadding: EdgeInsetsDirectional.fromSTEB(16.0, 16.0, 16.0, 16.0),
+                                            prefixIcon: Padding(
+                                              padding: EdgeInsetsDirectional.fromSTEB(12.0, 16.0, 0.0, 0.0),
+                                              child: Icon(
+                                                Icons.description_outlined,
+                                                color: FlutterFlowTheme.of(context).secondaryText,
+                                                size: 20.0,
+                                              ),
+                                            ),
+                                          ),
+                                          style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                                font: GoogleFonts.inter(),
+                                                fontSize: 15.0,
+                                                letterSpacing: 0.0,
+                                              ),
+                                          cursorColor: FlutterFlowTheme.of(context).primary,
+                                        ),
+                                      ].divide(SizedBox(height: 6.0)),
+                                    ),
+                                    Column(
+                                      mainAxisSize: MainAxisSize.max,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
                                           'Password',
                                           style: FlutterFlowTheme.of(context)
                                               .labelLarge
@@ -1298,6 +1489,8 @@ class _CreateAccountWidgetState extends State<CreateAccountWidget> {
                             email: _model.textController1.text,
                             displayName: _model.emailTextController.text,
                             jobTitle: _model.jobTitleTextController!.text,
+                            phoneNumber: _model.phoneNumberTextController!.text,
+                            serviceDescription: _model.serviceDescriptionTextController!.text,
                           ),
                           ...mapToFirestore(
                             {
