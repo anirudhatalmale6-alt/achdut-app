@@ -1125,7 +1125,7 @@ class _CreateAccountWidgetState extends State<CreateAccountWidget> {
 
                         final user = await authManager.createAccountWithEmail(
                           context,
-                          _model.emailTextController.text,
+                          _model.textController1.text,
                           _model.passwordTextController.text,
                         );
                         if (user == null) {
@@ -1134,8 +1134,8 @@ class _CreateAccountWidgetState extends State<CreateAccountWidget> {
 
                         await UsersRecord.collection.doc(user.uid).update({
                           ...createUsersRecordData(
-                            email: _model.emailTextController.text,
-                            displayName: _model.textController1.text,
+                            email: _model.textController1.text,
+                            displayName: _model.emailTextController.text,
                           ),
                           ...mapToFirestore(
                             {
