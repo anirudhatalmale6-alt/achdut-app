@@ -1,3 +1,4 @@
+import 'dart:io';
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
@@ -10,6 +11,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'create_post_page_model.dart';
 export 'create_post_page_model.dart';
 
@@ -26,14 +29,14 @@ class CreatePostPageWidget extends StatefulWidget {
 
 class _CreatePostPageWidgetState extends State<CreatePostPageWidget> {
   late CreatePostPageModel _model;
-
   final scaffoldKey = GlobalKey<ScaffoldState>();
+  File? _selectedImage;
+  bool _isPosting = false;
 
   @override
   void initState() {
     super.initState();
     _model = createModel(context, () => CreatePostPageModel());
-
     _model.textController ??= TextEditingController();
     _model.textFieldFocusNode ??= FocusNode();
   }
@@ -41,8 +44,66 @@ class _CreatePostPageWidgetState extends State<CreatePostPageWidget> {
   @override
   void dispose() {
     _model.dispose();
-
     super.dispose();
+  }
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1080,
+      maxHeight: 1080,
+      imageQuality: 85,
+    );
+    if (pickedFile != null) {
+      safeSetState(() => _selectedImage = File(pickedFile.path));
+    }
+  }
+
+  Future<String?> _uploadPostImage() async {
+    if (_selectedImage == null) return null;
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final storageRef = FirebaseStorage.instance
+        .ref()
+        .child('posts')
+        .child(currentUserUid)
+        .child('post_$timestamp.jpg');
+    await storageRef.putFile(_selectedImage!);
+    return await storageRef.getDownloadURL();
+  }
+
+  Future<void> _createPost() async {
+    if (_model.textController.text.trim().isEmpty && _selectedImage == null) {
+      return;
+    }
+    safeSetState(() => _isPosting = true);
+    try {
+      String? imageUrl;
+      if (_selectedImage != null) {
+        imageUrl = await _uploadPostImage();
+      }
+      await PostsRecord.collection.doc().set({
+        ...createPostsRecordData(
+          createdTime: getCurrentTimestamp,
+          createBy: currentUserDisplayName.isNotEmpty
+              ? currentUserDisplayName
+              : currentUserEmail,
+          content: _model.textController.text,
+          creatorUid: currentUserUid,
+          imageUrl: imageUrl,
+          likes: 0,
+        ),
+        'liked_by': [],
+      });
+      if (mounted) context.safePop();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error creating post')),
+        );
+      }
+    }
+    safeSetState(() => _isPosting = false);
   }
 
   @override
@@ -89,20 +150,8 @@ class _CreatePostPageWidgetState extends State<CreatePostPageWidget> {
             Padding(
               padding: EdgeInsetsDirectional.fromSTEB(12.0, 0.0, 12.0, 0.0),
               child: FFButtonWidget(
-                onPressed: () async {
-                  if (_model.textController.text.trim().isEmpty) {
-                    return;
-                  }
-                  await PostsRecord.collection.doc().set(createPostsRecordData(
-                        createdTime: getCurrentTimestamp,
-                        createBy: currentUserDisplayName.isNotEmpty
-                            ? currentUserDisplayName
-                            : currentUserEmail,
-                        content: _model.textController.text,
-                      ));
-                  context.safePop();
-                },
-                text: 'Post',
+                onPressed: _isPosting ? null : () => _createPost(),
+                text: _isPosting ? 'Posting...' : 'Post',
                 options: FFButtonOptions(
                   height: 36.0,
                   padding: EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 0.0),
@@ -198,17 +247,9 @@ class _CreatePostPageWidgetState extends State<CreatePostPageWidget> {
                                             .override(
                                               font: GoogleFonts.interTight(
                                                 fontWeight: FontWeight.bold,
-                                                fontStyle:
-                                                    FlutterFlowTheme.of(context)
-                                                        .titleSmall
-                                                        .fontStyle,
                                               ),
                                               letterSpacing: 0.0,
                                               fontWeight: FontWeight.bold,
-                                              fontStyle:
-                                                  FlutterFlowTheme.of(context)
-                                                      .titleSmall
-                                                      .fontStyle,
                                             ),
                                       ),
                                     ),
@@ -251,11 +292,6 @@ class _CreatePostPageWidgetState extends State<CreatePostPageWidget> {
                                                               GoogleFonts.inter(
                                                             fontWeight:
                                                                 FontWeight.w600,
-                                                            fontStyle:
-                                                                FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .labelSmall
-                                                                    .fontStyle,
                                                           ),
                                                           color: FlutterFlowTheme
                                                                   .of(context)
@@ -263,11 +299,6 @@ class _CreatePostPageWidgetState extends State<CreatePostPageWidget> {
                                                           letterSpacing: 0.0,
                                                           fontWeight:
                                                               FontWeight.w600,
-                                                          fontStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .labelSmall
-                                                                  .fontStyle,
                                                         ),
                                                   ),
                                                   Icon(
@@ -308,18 +339,12 @@ class _CreatePostPageWidgetState extends State<CreatePostPageWidget> {
                                 FlutterFlowTheme.of(context).bodyLarge.override(
                                       font: GoogleFonts.inter(
                                         fontWeight: FontWeight.normal,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .bodyLarge
-                                            .fontStyle,
                                       ),
                                       color: FlutterFlowTheme.of(context)
                                           .secondaryText,
                                       fontSize: 16.0,
                                       letterSpacing: 0.0,
                                       fontWeight: FontWeight.normal,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .bodyLarge
-                                          .fontStyle,
                                     ),
                             enabledBorder: InputBorder.none,
                             focusedBorder: InputBorder.none,
@@ -330,180 +355,55 @@ class _CreatePostPageWidgetState extends State<CreatePostPageWidget> {
                               FlutterFlowTheme.of(context).bodyLarge.override(
                                     font: GoogleFonts.inter(
                                       fontWeight: FontWeight.normal,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .bodyLarge
-                                          .fontStyle,
                                     ),
                                     fontSize: 16.0,
                                     letterSpacing: 0.0,
                                     fontWeight: FontWeight.normal,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .bodyLarge
-                                        .fontStyle,
                                   ),
                           maxLines: 8,
                           minLines: 4,
                           keyboardType: TextInputType.multiline,
                           validator: _model.textControllerValidator
                               .asValidator(context),
-                          inputFormatters: [
-                            if (!isAndroid && !isiOS)
-                              TextInputFormatter.withFunction(
-                                  (oldValue, newValue) {
-                                return TextEditingValue(
-                                  selection: newValue.selection,
-                                  text: newValue.text.toCapitalization(
-                                      TextCapitalization.sentences),
-                                );
-                              }),
-                          ],
                         ),
                       ),
-                      Padding(
-                        padding: EdgeInsetsDirectional.fromSTEB(
-                            16.0, 12.0, 16.0, 0.0),
-                        child: Stack(
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(16.0),
-                              child: Container(
-                                width: double.infinity,
-                                height: 220.0,
-                                decoration: BoxDecoration(
-                                  color: FlutterFlowTheme.of(context).alternate,
-                                  image: DecorationImage(
-                                    fit: BoxFit.cover,
-                                    image: Image.network(
-                                      '800x600?nature#2',
-                                    ).image,
-                                  ),
-                                  borderRadius: BorderRadius.circular(16.0),
+                      // Selected image preview
+                      if (_selectedImage != null)
+                        Padding(
+                          padding: EdgeInsetsDirectional.fromSTEB(
+                              16.0, 12.0, 16.0, 0.0),
+                          child: Stack(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(16.0),
+                                child: Image.file(
+                                  _selectedImage!,
+                                  width: double.infinity,
+                                  height: 220.0,
+                                  fit: BoxFit.cover,
                                 ),
                               ),
-                            ),
-                            Align(
-                              alignment: AlignmentDirectional(1.0, -1.0),
-                              child: Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(
-                                    8.0, 8.0, 8.0, 0.0),
-                                child: Container(
-                                  width: 32.0,
-                                  height: 32.0,
-                                  decoration: BoxDecoration(
-                                    color: Color(0xCC000000),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Align(
-                                    alignment: AlignmentDirectional(0.0, 0.0),
-                                    child: Icon(
-                                      Icons.close_rounded,
-                                      color: Colors.white,
-                                      size: 16.0,
+                              Positioned(
+                                top: 8.0,
+                                right: 8.0,
+                                child: GestureDetector(
+                                  onTap: () =>
+                                      safeSetState(() => _selectedImage = null),
+                                  child: Container(
+                                    width: 32.0,
+                                    height: 32.0,
+                                    decoration: BoxDecoration(
+                                      color: Color(0xCC000000),
+                                      shape: BoxShape.circle,
                                     ),
+                                    child: Icon(Icons.close_rounded,
+                                        color: Colors.white, size: 16.0),
                                   ),
                                 ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                      Padding(
-                        padding: EdgeInsetsDirectional.fromSTEB(
-                            16.0, 16.0, 16.0, 0.0),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.max,
-                          children: [
-                            Container(
-                              height: 32.0,
-                              decoration: BoxDecoration(
-                                color: FlutterFlowTheme.of(context).accent1,
-                                borderRadius: BorderRadius.circular(20.0),
-                              ),
-                              child: Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(
-                                    12.0, 0.0, 12.0, 0.0),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.max,
-                                  children: [
-                                    Icon(
-                                      Icons.local_offer_outlined,
-                                      color:
-                                          FlutterFlowTheme.of(context).primary,
-                                      size: 16.0,
-                                    ),
-                                    Text(
-                                      'Add Tags',
-                                      style: FlutterFlowTheme.of(context)
-                                          .labelMedium
-                                          .override(
-                                            font: GoogleFonts.inter(
-                                              fontWeight: FontWeight.w600,
-                                              fontStyle:
-                                                  FlutterFlowTheme.of(context)
-                                                      .labelMedium
-                                                      .fontStyle,
-                                            ),
-                                            color: FlutterFlowTheme.of(context)
-                                                .primary,
-                                            letterSpacing: 0.0,
-                                            fontWeight: FontWeight.w600,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .labelMedium
-                                                    .fontStyle,
-                                          ),
-                                    ),
-                                  ].divide(SizedBox(width: 6.0)),
-                                ),
-                              ),
-                            ),
-                            Container(
-                              height: 32.0,
-                              decoration: BoxDecoration(
-                                color: FlutterFlowTheme.of(context).accent1,
-                                borderRadius: BorderRadius.circular(20.0),
-                              ),
-                              child: Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(
-                                    12.0, 0.0, 12.0, 0.0),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.max,
-                                  children: [
-                                    Icon(
-                                      Icons.location_on_outlined,
-                                      color:
-                                          FlutterFlowTheme.of(context).primary,
-                                      size: 16.0,
-                                    ),
-                                    Text(
-                                      'Location',
-                                      style: FlutterFlowTheme.of(context)
-                                          .labelMedium
-                                          .override(
-                                            font: GoogleFonts.inter(
-                                              fontWeight: FontWeight.w600,
-                                              fontStyle:
-                                                  FlutterFlowTheme.of(context)
-                                                      .labelMedium
-                                                      .fontStyle,
-                                            ),
-                                            color: FlutterFlowTheme.of(context)
-                                                .primary,
-                                            letterSpacing: 0.0,
-                                            fontWeight: FontWeight.w600,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .labelMedium
-                                                    .fontStyle,
-                                          ),
-                                    ),
-                                  ].divide(SizedBox(width: 6.0)),
-                                ),
-                              ),
-                            ),
-                          ].divide(SizedBox(width: 8.0)),
-                        ),
-                      ),
                     ],
                   ),
                 ),
@@ -540,9 +440,7 @@ class _CreatePostPageWidgetState extends State<CreatePostPageWidget> {
                                 color: FlutterFlowTheme.of(context).primary,
                                 size: 22.0,
                               ),
-                              onPressed: () {
-                                print('IconButton pressed ...');
-                              },
+                              onPressed: _pickImage,
                             ),
                             FlutterFlowIconButton(
                               borderColor: Colors.transparent,
@@ -556,7 +454,9 @@ class _CreatePostPageWidgetState extends State<CreatePostPageWidget> {
                                 size: 22.0,
                               ),
                               onPressed: () {
-                                print('IconButton pressed ...');
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Video coming soon')),
+                                );
                               },
                             ),
                             FlutterFlowIconButton(
@@ -571,7 +471,9 @@ class _CreatePostPageWidgetState extends State<CreatePostPageWidget> {
                                 size: 22.0,
                               ),
                               onPressed: () {
-                                print('IconButton pressed ...');
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Emoji coming soon')),
+                                );
                               },
                             ),
                             FlutterFlowIconButton(
@@ -586,25 +488,12 @@ class _CreatePostPageWidgetState extends State<CreatePostPageWidget> {
                                 size: 22.0,
                               ),
                               onPressed: () {
-                                print('IconButton pressed ...');
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Links coming soon')),
+                                );
                               },
                             ),
                           ].divide(SizedBox(width: 4.0)),
-                        ),
-                        FlutterFlowIconButton(
-                          borderColor: Colors.transparent,
-                          borderRadius: 22.0,
-                          borderWidth: 0.0,
-                          buttonSize: 44.0,
-                          fillColor: FlutterFlowTheme.of(context).accent1,
-                          icon: Icon(
-                            Icons.more_horiz_rounded,
-                            color: FlutterFlowTheme.of(context).primary,
-                            size: 22.0,
-                          ),
-                          onPressed: () {
-                            print('IconButton pressed ...');
-                          },
                         ),
                       ],
                     ),

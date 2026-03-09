@@ -8,6 +8,7 @@ import 'schema/util/firestore_util.dart';
 import 'schema/posts_record.dart';
 import 'schema/users_record.dart';
 import 'schema/connections_record.dart';
+import 'schema/comments_record.dart';
 
 export 'dart:async' show StreamSubscription;
 export 'package:cloud_firestore/cloud_firestore.dart' hide Order;
@@ -19,6 +20,7 @@ export 'schema/util/schema_util.dart';
 export 'schema/posts_record.dart';
 export 'schema/users_record.dart';
 export 'schema/connections_record.dart';
+export 'schema/comments_record.dart';
 
 /// Functions to query PostsRecords (as a Stream and as a Future).
 Future<int> queryPostsRecordCount({
@@ -116,6 +118,33 @@ Future<List<ConnectionsRecord>> queryConnectionsRecordOnce({
     queryCollectionOnce(
       ConnectionsRecord.collection,
       ConnectionsRecord.fromSnapshot,
+      queryBuilder: queryBuilder,
+      limit: limit,
+      singleRecord: singleRecord,
+    );
+
+/// Functions to query CommentsRecords (as a Stream and as a Future).
+Stream<List<CommentsRecord>> queryCommentsRecord({
+  Query Function(Query)? queryBuilder,
+  int limit = -1,
+  bool singleRecord = false,
+}) =>
+    queryCollection(
+      CommentsRecord.collection,
+      CommentsRecord.fromSnapshot,
+      queryBuilder: queryBuilder,
+      limit: limit,
+      singleRecord: singleRecord,
+    );
+
+Future<List<CommentsRecord>> queryCommentsRecordOnce({
+  Query Function(Query)? queryBuilder,
+  int limit = -1,
+  bool singleRecord = false,
+}) =>
+    queryCollectionOnce(
+      CommentsRecord.collection,
+      CommentsRecord.fromSnapshot,
       queryBuilder: queryBuilder,
       limit: limit,
       singleRecord: singleRecord,
