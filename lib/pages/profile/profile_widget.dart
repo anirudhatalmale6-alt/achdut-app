@@ -1,3 +1,4 @@
+import 'dart:io';
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
@@ -6,6 +7,8 @@ import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'profile_model.dart';
 export 'profile_model.dart';
 
@@ -23,6 +26,8 @@ class _ProfileWidgetState extends State<ProfileWidget> {
   late ProfileModel _model;
   bool _isLoading = true;
   bool _isSaving = false;
+  bool _isUploadingPhoto = false;
+  String? _photoUrl;
 
   @override
   void initState() {
@@ -43,6 +48,7 @@ class _ProfileWidgetState extends State<ProfileWidget> {
       _model.phoneNumberFocusNode = FocusNode();
       _model.serviceDescriptionController = TextEditingController(text: user.serviceDescription);
       _model.serviceDescriptionFocusNode = FocusNode();
+      _photoUrl = user.photoUrl.isNotEmpty ? user.photoUrl : null;
     } else {
       _model.displayNameController = TextEditingController();
       _model.displayNameFocusNode = FocusNode();
@@ -54,6 +60,51 @@ class _ProfileWidgetState extends State<ProfileWidget> {
       _model.serviceDescriptionFocusNode = FocusNode();
     }
     safeSetState(() => _isLoading = false);
+  }
+
+  Future<void> _pickAndUploadPhoto() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 512,
+      maxHeight: 512,
+      imageQuality: 80,
+    );
+    if (pickedFile == null) return;
+
+    safeSetState(() => _isUploadingPhoto = true);
+    try {
+      final file = File(pickedFile.path);
+      final storageRef = FirebaseStorage.instance
+          .ref()
+          .child('users')
+          .child(currentUserUid)
+          .child('profile.jpg');
+
+      await storageRef.putFile(file);
+      final downloadUrl = await storageRef.getDownloadURL();
+
+      await UsersRecord.collection.doc(currentUserUid).update({
+        'photo_url': downloadUrl,
+      });
+
+      safeSetState(() {
+        _photoUrl = downloadUrl;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Photo updated!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error uploading photo')),
+        );
+      }
+    }
+    safeSetState(() => _isUploadingPhoto = false);
   }
 
   Future<void> _saveProfile() async {
@@ -177,20 +228,59 @@ class _ProfileWidgetState extends State<ProfileWidget> {
                       Center(
                         child: Column(
                           children: [
-                            AuthUserStreamWidget(
-                              builder: (context) => Container(
-                                width: 80.0, height: 80.0,
-                                clipBehavior: Clip.antiAlias,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: FlutterFlowTheme.of(context).alternate,
-                                ),
-                                child: currentUserPhoto.isNotEmpty
-                                    ? Image.network(currentUserPhoto, fit: BoxFit.cover)
-                                    : Icon(Icons.person, color: FlutterFlowTheme.of(context).secondaryText, size: 40.0),
+                            GestureDetector(
+                              onTap: _isUploadingPhoto ? null : _pickAndUploadPhoto,
+                              child: Stack(
+                                children: [
+                                  Container(
+                                    width: 100.0, height: 100.0,
+                                    clipBehavior: Clip.antiAlias,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: FlutterFlowTheme.of(context).alternate,
+                                    ),
+                                    child: _isUploadingPhoto
+                                        ? Center(child: SizedBox(
+                                            width: 30.0, height: 30.0,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2.5,
+                                              valueColor: AlwaysStoppedAnimation<Color>(
+                                                  FlutterFlowTheme.of(context).primary)),
+                                          ))
+                                        : _photoUrl != null && _photoUrl!.isNotEmpty
+                                            ? Image.network(_photoUrl!, fit: BoxFit.cover,
+                                                width: 100.0, height: 100.0)
+                                            : Icon(Icons.person,
+                                                color: FlutterFlowTheme.of(context).secondaryText,
+                                                size: 50.0),
+                                  ),
+                                  Positioned(
+                                    bottom: 0, right: 0,
+                                    child: Container(
+                                      width: 32.0, height: 32.0,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: FlutterFlowTheme.of(context).primary,
+                                        border: Border.all(
+                                          color: FlutterFlowTheme.of(context).primaryBackground,
+                                          width: 2.0,
+                                        ),
+                                      ),
+                                      child: Icon(Icons.camera_alt_rounded,
+                                          color: Colors.white, size: 16.0),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                            SizedBox(height: 8.0),
+                            SizedBox(height: 6.0),
+                            Text('Tap to change photo',
+                                style: FlutterFlowTheme.of(context).labelSmall.override(
+                                  font: GoogleFonts.inter(),
+                                  color: FlutterFlowTheme.of(context).secondaryText,
+                                  letterSpacing: 0.0,
+                                )),
+                            SizedBox(height: 4.0),
                             Text(currentUserEmail, style: FlutterFlowTheme.of(context).bodySmall.override(
                               font: GoogleFonts.inter(),
                               color: FlutterFlowTheme.of(context).secondaryText,
