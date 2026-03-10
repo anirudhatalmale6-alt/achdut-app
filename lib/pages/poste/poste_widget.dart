@@ -110,16 +110,32 @@ class _PosteWidgetState extends State<PosteWidget> {
                   child: StreamBuilder<List<CommentsRecord>>(
                     stream: queryCommentsRecord(
                       queryBuilder: (q) => q
-                          .where('post_id', isEqualTo: post.reference.id)
-                          .orderBy('created_time', descending: false),
+                          .where('post_id', isEqualTo: post.reference.id),
                     ),
                     builder: (context, snapshot) {
+                      if (snapshot.hasError) {
+                        return Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(16.0),
+                            child: Text(
+                              'Unable to load comments. Please check Firestore rules.',
+                              textAlign: TextAlign.center,
+                              style: FlutterFlowTheme.of(ctx).bodyMedium.override(
+                                    font: GoogleFonts.inter(),
+                                    color: FlutterFlowTheme.of(ctx).secondaryText,
+                                    letterSpacing: 0.0),
+                            ),
+                          ),
+                        );
+                      }
                       if (!snapshot.hasData) {
                         return Center(child: CircularProgressIndicator(
                             valueColor: AlwaysStoppedAnimation<Color>(
                                 FlutterFlowTheme.of(ctx).primary)));
                       }
-                      final comments = snapshot.data!;
+                      final comments = snapshot.data!
+                        ..sort((a, b) => (a.createdTime ?? DateTime(2000))
+                            .compareTo(b.createdTime ?? DateTime(2000)));
                       if (comments.isEmpty) {
                         return Center(
                           child: Column(
