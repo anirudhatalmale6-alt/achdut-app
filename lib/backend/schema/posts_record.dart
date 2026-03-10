@@ -56,6 +56,21 @@ class PostsRecord extends FirestoreRecord {
   String get creatorUid => _creatorUid ?? '';
   bool hasCreatorUid() => _creatorUid != null;
 
+  // "video_url" field.
+  String? _videoUrl;
+  String get videoUrl => _videoUrl ?? '';
+  bool hasVideoUrl() => _videoUrl != null;
+
+  // "visibility" field.
+  String? _visibility;
+  String get visibility => _visibility ?? 'everyone';
+  bool hasVisibility() => _visibility != null;
+
+  // "link_url" field.
+  String? _linkUrl;
+  String get linkUrl => _linkUrl ?? '';
+  bool hasLinkUrl() => _linkUrl != null;
+
   void _initializeFields() {
     _createdTime = snapshotData['created_time'] as DateTime?;
     _title = snapshotData['title'] as String?;
@@ -65,6 +80,9 @@ class PostsRecord extends FirestoreRecord {
     _likedBy = getDataList(snapshotData['liked_by']);
     _imageUrl = snapshotData['image_url'] as String?;
     _creatorUid = snapshotData['creator_uid'] as String?;
+    _videoUrl = snapshotData['video_url'] as String?;
+    _visibility = snapshotData['visibility'] as String?;
+    _linkUrl = snapshotData['link_url'] as String?;
   }
 
   static CollectionReference get collection =>
@@ -108,6 +126,9 @@ Map<String, dynamic> createPostsRecordData({
   int? likes,
   String? imageUrl,
   String? creatorUid,
+  String? videoUrl,
+  String? visibility,
+  String? linkUrl,
 }) {
   final firestoreData = mapToFirestore(
     <String, dynamic>{
@@ -118,6 +139,9 @@ Map<String, dynamic> createPostsRecordData({
       'likes': likes,
       'image_url': imageUrl,
       'creator_uid': creatorUid,
+      'video_url': videoUrl,
+      'visibility': visibility,
+      'link_url': linkUrl,
     }.withoutNulls,
   );
 

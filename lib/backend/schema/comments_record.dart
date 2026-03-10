@@ -46,6 +46,11 @@ class CommentsRecord extends FirestoreRecord {
   DateTime? get createdTime => _createdTime;
   bool hasCreatedTime() => _createdTime != null;
 
+  // "image_url" field.
+  String? _imageUrl;
+  String get imageUrl => _imageUrl ?? '';
+  bool hasImageUrl() => _imageUrl != null;
+
   void _initializeFields() {
     _postId = snapshotData['post_id'] as String?;
     _userUid = snapshotData['user_uid'] as String?;
@@ -53,6 +58,7 @@ class CommentsRecord extends FirestoreRecord {
     _userPhoto = snapshotData['user_photo'] as String?;
     _text = snapshotData['text'] as String?;
     _createdTime = snapshotData['created_time'] as DateTime?;
+    _imageUrl = snapshotData['image_url'] as String?;
   }
 
   static CollectionReference get collection =>
@@ -96,6 +102,7 @@ Map<String, dynamic> createCommentsRecordData({
   String? userPhoto,
   String? text,
   DateTime? createdTime,
+  String? imageUrl,
 }) {
   final firestoreData = mapToFirestore(
     <String, dynamic>{
@@ -105,6 +112,7 @@ Map<String, dynamic> createCommentsRecordData({
       'user_photo': userPhoto,
       'text': text,
       'created_time': createdTime,
+      'image_url': imageUrl,
     }.withoutNulls,
   );
 

@@ -10,9 +10,14 @@ import '/index.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:timeago/timeago.dart' as timeago;
+import 'package:url_launcher/url_launcher.dart';
+import 'package:video_player/video_player.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'poste_model.dart';
 export 'poste_model.dart';
 
@@ -97,6 +102,7 @@ class _PosteWidgetState extends State<PosteWidget> {
         final userPhoto = data['user_photo'] as String? ?? '';
         final text = data['text'] as String? ?? '';
         final createdTime = data['created_time'] as Timestamp?;
+        final commentImageUrl = data['image_url'] as String? ?? '';
 
         return Padding(
           padding: EdgeInsets.symmetric(vertical: 6.0),
@@ -137,11 +143,22 @@ class _PosteWidgetState extends State<PosteWidget> {
                                     letterSpacing: 0.0)),
                       ],
                     ),
-                    SizedBox(height: 2.0),
-                    Text(text,
-                        style: FlutterFlowTheme.of(ctx).bodyMedium.override(
-                              font: GoogleFonts.inter(),
-                              letterSpacing: 0.0)),
+                    if (text.isNotEmpty) ...[
+                      SizedBox(height: 2.0),
+                      Text(text,
+                          style: FlutterFlowTheme.of(ctx).bodyMedium.override(
+                                font: GoogleFonts.inter(),
+                                letterSpacing: 0.0)),
+                    ],
+                    if (commentImageUrl.isNotEmpty)
+                      Padding(
+                        padding: EdgeInsets.only(top: 6.0),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8.0),
+                          child: Image.network(commentImageUrl,
+                              width: 200.0, fit: BoxFit.cover),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -154,6 +171,17 @@ class _PosteWidgetState extends State<PosteWidget> {
 
   void _showComments(BuildContext context, PostsRecord post) {
     final commentController = TextEditingController();
+    File? commentImage;
+    bool isSending = false;
+
+    Future<String?> uploadCommentImage(File file) async {
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final ref = FirebaseStorage.instance
+          .ref().child('comments').child(currentUserUid).child('comment_$timestamp.jpg');
+      await ref.putFile(file);
+      return await ref.getDownloadURL();
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -265,71 +293,133 @@ class _PosteWidgetState extends State<PosteWidget> {
                     },
                   ),
                 ),
-                // Comment input
-                Divider(height: 1.0, thickness: 1.0,
-                    color: FlutterFlowTheme.of(ctx).alternate),
-                Padding(
-                  padding: EdgeInsets.fromLTRB(16.0, 8.0, 8.0,
-                      MediaQuery.of(ctx).viewInsets.bottom + 8.0),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: commentController,
-                          decoration: InputDecoration(
-                            hintText: 'Write a comment...',
-                            hintStyle: FlutterFlowTheme.of(ctx).bodyMedium.override(
-                                  font: GoogleFonts.inter(),
-                                  color: FlutterFlowTheme.of(ctx).secondaryText,
-                                  letterSpacing: 0.0),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(24.0),
-                              borderSide: BorderSide(
-                                  color: FlutterFlowTheme.of(ctx).alternate),
+                // Comment image preview
+                StatefulBuilder(
+                  builder: (context, setLocalState) {
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (commentImage != null)
+                          Padding(
+                            padding: EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 0.0),
+                            child: Stack(
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(12.0),
+                                  child: Image.file(commentImage!,
+                                      width: double.infinity, height: 120.0, fit: BoxFit.cover),
+                                ),
+                                Positioned(
+                                  top: 4.0, right: 4.0,
+                                  child: GestureDetector(
+                                    onTap: () => setLocalState(() => commentImage = null),
+                                    child: Container(
+                                      width: 24.0, height: 24.0,
+                                      decoration: BoxDecoration(color: Color(0xCC000000), shape: BoxShape.circle),
+                                      child: Icon(Icons.close_rounded, color: Colors.white, size: 14.0),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(24.0),
-                              borderSide: BorderSide(
-                                  color: FlutterFlowTheme.of(ctx).alternate),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(24.0),
-                              borderSide: BorderSide(
-                                  color: FlutterFlowTheme.of(ctx).primary),
-                            ),
-                            contentPadding: EdgeInsets.symmetric(
-                                horizontal: 16.0, vertical: 10.0),
-                            filled: true,
-                            fillColor: FlutterFlowTheme.of(ctx).primaryBackground,
                           ),
-                          style: FlutterFlowTheme.of(ctx).bodyMedium.override(
-                                font: GoogleFonts.inter(), letterSpacing: 0.0),
+                        // Comment input
+                        Divider(height: 1.0, thickness: 1.0,
+                            color: FlutterFlowTheme.of(ctx).alternate),
+                        Padding(
+                          padding: EdgeInsets.fromLTRB(8.0, 8.0, 8.0,
+                              MediaQuery.of(ctx).viewInsets.bottom + 8.0),
+                          child: Row(
+                            children: [
+                              // Image picker for comment
+                              IconButton(
+                                icon: Icon(Icons.image_outlined,
+                                    color: FlutterFlowTheme.of(ctx).primary, size: 22.0),
+                                onPressed: () async {
+                                  final picker = ImagePicker();
+                                  final picked = await picker.pickImage(
+                                    source: ImageSource.gallery,
+                                    maxWidth: 800, maxHeight: 800, imageQuality: 80,
+                                  );
+                                  if (picked != null) {
+                                    setLocalState(() => commentImage = File(picked.path));
+                                  }
+                                },
+                              ),
+                              Expanded(
+                                child: TextField(
+                                  controller: commentController,
+                                  decoration: InputDecoration(
+                                    hintText: 'Write a comment...',
+                                    hintStyle: FlutterFlowTheme.of(ctx).bodyMedium.override(
+                                          font: GoogleFonts.inter(),
+                                          color: FlutterFlowTheme.of(ctx).secondaryText,
+                                          letterSpacing: 0.0),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(24.0),
+                                      borderSide: BorderSide(color: FlutterFlowTheme.of(ctx).alternate),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(24.0),
+                                      borderSide: BorderSide(color: FlutterFlowTheme.of(ctx).alternate),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(24.0),
+                                      borderSide: BorderSide(color: FlutterFlowTheme.of(ctx).primary),
+                                    ),
+                                    contentPadding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
+                                    filled: true,
+                                    fillColor: FlutterFlowTheme.of(ctx).primaryBackground,
+                                  ),
+                                  style: FlutterFlowTheme.of(ctx).bodyMedium.override(
+                                        font: GoogleFonts.inter(), letterSpacing: 0.0),
+                                ),
+                              ),
+                              SizedBox(width: 4.0),
+                              IconButton(
+                                icon: isSending
+                                    ? SizedBox(width: 20.0, height: 20.0,
+                                        child: CircularProgressIndicator(strokeWidth: 2.0))
+                                    : Icon(Icons.send_rounded,
+                                        color: FlutterFlowTheme.of(ctx).primary, size: 24.0),
+                                onPressed: isSending ? null : () async {
+                                  final text = commentController.text.trim();
+                                  if (text.isEmpty && commentImage == null) return;
+                                  setLocalState(() => isSending = true);
+                                  try {
+                                    String? imgUrl;
+                                    if (commentImage != null) {
+                                      imgUrl = await uploadCommentImage(commentImage!);
+                                    }
+                                    await CommentsRecord.collection.doc().set(
+                                      createCommentsRecordData(
+                                        postId: post.reference.id,
+                                        userUid: currentUserUid,
+                                        userName: currentUserDisplayName.isNotEmpty
+                                            ? currentUserDisplayName
+                                            : currentUserEmail,
+                                        userPhoto: currentUserPhoto,
+                                        text: text,
+                                        createdTime: getCurrentTimestamp,
+                                        imageUrl: imgUrl,
+                                      ),
+                                    );
+                                    commentController.clear();
+                                    setLocalState(() {
+                                      commentImage = null;
+                                      isSending = false;
+                                    });
+                                  } catch (e) {
+                                    setLocalState(() => isSending = false);
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      SizedBox(width: 4.0),
-                      IconButton(
-                        icon: Icon(Icons.send_rounded,
-                            color: FlutterFlowTheme.of(ctx).primary, size: 24.0),
-                        onPressed: () async {
-                          final text = commentController.text.trim();
-                          if (text.isEmpty) return;
-                          await CommentsRecord.collection.doc().set(
-                            createCommentsRecordData(
-                              postId: post.reference.id,
-                              userUid: currentUserUid,
-                              userName: currentUserDisplayName.isNotEmpty
-                                  ? currentUserDisplayName
-                                  : currentUserEmail,
-                              userPhoto: currentUserPhoto,
-                              text: text,
-                              createdTime: getCurrentTimestamp,
-                            ),
-                          );
-                          commentController.clear();
-                        },
-                      ),
-                    ],
-                  ),
+                      ],
+                    );
+                  },
                 ),
               ],
             );
@@ -652,19 +742,29 @@ class _PosteWidgetState extends State<PosteWidget> {
                                               fontWeight: FontWeight.w600,
                                             ),
                                       ),
-                                      if (post.createdTime != null)
-                                        Text(
-                                          timeago.format(post.createdTime!),
-                                          style: FlutterFlowTheme.of(context)
-                                              .labelSmall
-                                              .override(
-                                                font: GoogleFonts.inter(),
-                                                color:
-                                                    FlutterFlowTheme.of(context)
-                                                        .secondaryText,
-                                                letterSpacing: 0.0,
-                                              ),
-                                        ),
+                                      Row(
+                                        children: [
+                                          if (post.createdTime != null)
+                                            Text(
+                                              timeago.format(post.createdTime!),
+                                              style: FlutterFlowTheme.of(context)
+                                                  .labelSmall
+                                                  .override(
+                                                    font: GoogleFonts.inter(),
+                                                    color: FlutterFlowTheme.of(context).secondaryText,
+                                                    letterSpacing: 0.0,
+                                                  ),
+                                            ),
+                                          SizedBox(width: 6.0),
+                                          Icon(
+                                            post.visibility == 'connections'
+                                                ? Icons.people_rounded
+                                                : Icons.public_rounded,
+                                            color: FlutterFlowTheme.of(context).secondaryText,
+                                            size: 14.0,
+                                          ),
+                                        ],
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -696,6 +796,53 @@ class _PosteWidgetState extends State<PosteWidget> {
                                     width: double.infinity,
                                     height: 220.0,
                                     fit: BoxFit.cover,
+                                  ),
+                                ),
+                              ),
+                            // Post video
+                            if (post.videoUrl.isNotEmpty)
+                              Padding(
+                                padding: EdgeInsetsDirectional.fromSTEB(0.0, 10.0, 0.0, 0.0),
+                                child: _VideoPlayerWidget(url: post.videoUrl),
+                              ),
+                            // Post link
+                            if (post.linkUrl.isNotEmpty)
+                              Padding(
+                                padding: EdgeInsetsDirectional.fromSTEB(0.0, 10.0, 0.0, 0.0),
+                                child: GestureDetector(
+                                  onTap: () async {
+                                    final uri = Uri.tryParse(post.linkUrl);
+                                    if (uri != null && await canLaunchUrl(uri)) {
+                                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                    }
+                                  },
+                                  child: Container(
+                                    width: double.infinity,
+                                    padding: EdgeInsets.all(12.0),
+                                    decoration: BoxDecoration(
+                                      color: FlutterFlowTheme.of(context).accent1,
+                                      borderRadius: BorderRadius.circular(12.0),
+                                      border: Border.all(
+                                          color: FlutterFlowTheme.of(context).primary.withOpacity(0.3)),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.link_rounded,
+                                            color: FlutterFlowTheme.of(context).primary, size: 20.0),
+                                        SizedBox(width: 8.0),
+                                        Expanded(
+                                          child: Text(post.linkUrl,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: FlutterFlowTheme.of(context).bodySmall.override(
+                                                    font: GoogleFonts.inter(),
+                                                    color: FlutterFlowTheme.of(context).primary,
+                                                    letterSpacing: 0.0)),
+                                        ),
+                                        Icon(Icons.open_in_new_rounded,
+                                            color: FlutterFlowTheme.of(context).primary, size: 16.0),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
@@ -792,6 +939,89 @@ class _PosteWidgetState extends State<PosteWidget> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Inline video player widget for feed posts
+class _VideoPlayerWidget extends StatefulWidget {
+  final String url;
+  const _VideoPlayerWidget({required this.url});
+
+  @override
+  State<_VideoPlayerWidget> createState() => _VideoPlayerWidgetState();
+}
+
+class _VideoPlayerWidgetState extends State<_VideoPlayerWidget> {
+  late VideoPlayerController _controller;
+  bool _initialized = false;
+  bool _playing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.url))
+      ..initialize().then((_) {
+        setState(() => _initialized = true);
+      });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_initialized) {
+      return Container(
+        height: 200.0,
+        decoration: BoxDecoration(
+          color: Colors.black12,
+          borderRadius: BorderRadius.circular(12.0),
+        ),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12.0),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          AspectRatio(
+            aspectRatio: _controller.value.aspectRatio,
+            child: VideoPlayer(_controller),
+          ),
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                if (_controller.value.isPlaying) {
+                  _controller.pause();
+                  _playing = false;
+                } else {
+                  _controller.play();
+                  _playing = true;
+                }
+              });
+            },
+            child: Container(
+              color: Colors.transparent,
+              child: _playing
+                  ? SizedBox.shrink()
+                  : Container(
+                      width: 56.0, height: 56.0,
+                      decoration: BoxDecoration(
+                        color: Color(0x99000000),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.play_arrow_rounded,
+                          color: Colors.white, size: 36.0),
+                    ),
+            ),
+          ),
+        ],
       ),
     );
   }
