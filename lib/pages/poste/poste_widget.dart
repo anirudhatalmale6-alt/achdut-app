@@ -10,6 +10,7 @@ import '/index.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'poste_model.dart';
@@ -67,6 +68,90 @@ class _PosteWidgetState extends State<PosteWidget> {
     }
   }
 
+  Widget _buildCommentsList(BuildContext ctx, List<DocumentSnapshot> docs, ScrollController scrollController) {
+    if (docs.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.chat_bubble_outline_rounded,
+                color: FlutterFlowTheme.of(ctx).secondaryText,
+                size: 48.0),
+            SizedBox(height: 8.0),
+            Text('No comments yet',
+                style: FlutterFlowTheme.of(ctx).bodyMedium.override(
+                      font: GoogleFonts.inter(),
+                      color: FlutterFlowTheme.of(ctx).secondaryText,
+                      letterSpacing: 0.0)),
+          ],
+        ),
+      );
+    }
+    return ListView.builder(
+      controller: scrollController,
+      padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      itemCount: docs.length,
+      itemBuilder: (_, i) {
+        final data = docs[i].data() as Map<String, dynamic>;
+        final userName = data['user_name'] as String? ?? '';
+        final userPhoto = data['user_photo'] as String? ?? '';
+        final text = data['text'] as String? ?? '';
+        final createdTime = data['created_time'] as Timestamp?;
+
+        return Padding(
+          padding: EdgeInsets.symmetric(vertical: 6.0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 32.0, height: 32.0,
+                clipBehavior: Clip.antiAlias,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: FlutterFlowTheme.of(ctx).alternate,
+                ),
+                child: userPhoto.isNotEmpty
+                    ? Image.network(userPhoto, fit: BoxFit.cover)
+                    : Icon(Icons.person,
+                        color: FlutterFlowTheme.of(ctx).secondaryText,
+                        size: 18.0),
+              ),
+              SizedBox(width: 8.0),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(userName,
+                            style: FlutterFlowTheme.of(ctx).bodySmall.override(
+                                  font: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                                  letterSpacing: 0.0,
+                                  fontWeight: FontWeight.w600)),
+                        SizedBox(width: 8.0),
+                        if (createdTime != null)
+                          Text(timeago.format(createdTime.toDate()),
+                              style: FlutterFlowTheme.of(ctx).labelSmall.override(
+                                    font: GoogleFonts.inter(),
+                                    color: FlutterFlowTheme.of(ctx).secondaryText,
+                                    letterSpacing: 0.0)),
+                      ],
+                    ),
+                    SizedBox(height: 2.0),
+                    Text(text,
+                        style: FlutterFlowTheme.of(ctx).bodyMedium.override(
+                              font: GoogleFonts.inter(),
+                              letterSpacing: 0.0)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   void _showComments(BuildContext context, PostsRecord post) {
     final commentController = TextEditingController();
     showModalBottomSheet(
@@ -107,18 +192,60 @@ class _PosteWidgetState extends State<PosteWidget> {
                     color: FlutterFlowTheme.of(ctx).alternate),
                 // Comments list
                 Expanded(
-                  child: StreamBuilder<List<CommentsRecord>>(
-                    stream: queryCommentsRecord(
-                      queryBuilder: (q) => q
-                          .where('post_id', isEqualTo: post.reference.id),
-                    ),
+                  child: StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('comments')
+                        .where('post_id', isEqualTo: post.reference.id)
+                        .orderBy('created_time', descending: false)
+                        .snapshots(),
                     builder: (context, snapshot) {
                       if (snapshot.hasError) {
+                        final errMsg = snapshot.error.toString();
+                        // Check if it's a missing index error
+                        if (errMsg.contains('index')) {
+                          // Fallback: query without orderBy
+                          return StreamBuilder<QuerySnapshot>(
+                            stream: FirebaseFirestore.instance
+                                .collection('comments')
+                                .where('post_id', isEqualTo: post.reference.id)
+                                .snapshots(),
+                            builder: (context, fallbackSnapshot) {
+                              if (fallbackSnapshot.hasError) {
+                                return Center(
+                                  child: Padding(
+                                    padding: EdgeInsets.all(16.0),
+                                    child: Text(
+                                      'Unable to load comments. Please update Firestore rules.',
+                                      textAlign: TextAlign.center,
+                                      style: FlutterFlowTheme.of(ctx).bodyMedium.override(
+                                            font: GoogleFonts.inter(),
+                                            color: FlutterFlowTheme.of(ctx).secondaryText,
+                                            letterSpacing: 0.0),
+                                    ),
+                                  ),
+                                );
+                              }
+                              if (!fallbackSnapshot.hasData) {
+                                return Center(child: CircularProgressIndicator(
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                        FlutterFlowTheme.of(ctx).primary)));
+                              }
+                              final docs = fallbackSnapshot.data!.docs;
+                              docs.sort((a, b) {
+                                final aTime = (a.data() as Map)['created_time'] as Timestamp?;
+                                final bTime = (b.data() as Map)['created_time'] as Timestamp?;
+                                return (aTime?.millisecondsSinceEpoch ?? 0)
+                                    .compareTo(bTime?.millisecondsSinceEpoch ?? 0);
+                              });
+                              return _buildCommentsList(ctx, docs, scrollController);
+                            },
+                          );
+                        }
                         return Center(
                           child: Padding(
                             padding: EdgeInsets.all(16.0),
                             child: Text(
-                              'Unable to load comments. Please check Firestore rules.',
+                              'Unable to load comments. Please update Firestore rules.',
                               textAlign: TextAlign.center,
                               style: FlutterFlowTheme.of(ctx).bodyMedium.override(
                                     font: GoogleFonts.inter(),
@@ -133,85 +260,8 @@ class _PosteWidgetState extends State<PosteWidget> {
                             valueColor: AlwaysStoppedAnimation<Color>(
                                 FlutterFlowTheme.of(ctx).primary)));
                       }
-                      final comments = snapshot.data!
-                        ..sort((a, b) => (a.createdTime ?? DateTime(2000))
-                            .compareTo(b.createdTime ?? DateTime(2000)));
-                      if (comments.isEmpty) {
-                        return Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.chat_bubble_outline_rounded,
-                                  color: FlutterFlowTheme.of(ctx).secondaryText,
-                                  size: 48.0),
-                              SizedBox(height: 8.0),
-                              Text('No comments yet',
-                                  style: FlutterFlowTheme.of(ctx).bodyMedium.override(
-                                        font: GoogleFonts.inter(),
-                                        color: FlutterFlowTheme.of(ctx).secondaryText,
-                                        letterSpacing: 0.0)),
-                            ],
-                          ),
-                        );
-                      }
-                      return ListView.builder(
-                        controller: scrollController,
-                        padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                        itemCount: comments.length,
-                        itemBuilder: (_, i) {
-                          final comment = comments[i];
-                          return Padding(
-                            padding: EdgeInsets.symmetric(vertical: 6.0),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Container(
-                                  width: 32.0, height: 32.0,
-                                  clipBehavior: Clip.antiAlias,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: FlutterFlowTheme.of(ctx).alternate,
-                                  ),
-                                  child: comment.userPhoto.isNotEmpty
-                                      ? Image.network(comment.userPhoto, fit: BoxFit.cover)
-                                      : Icon(Icons.person,
-                                          color: FlutterFlowTheme.of(ctx).secondaryText,
-                                          size: 18.0),
-                                ),
-                                SizedBox(width: 8.0),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Text(comment.userName,
-                                              style: FlutterFlowTheme.of(ctx).bodySmall.override(
-                                                    font: GoogleFonts.inter(fontWeight: FontWeight.w600),
-                                                    letterSpacing: 0.0,
-                                                    fontWeight: FontWeight.w600)),
-                                          SizedBox(width: 8.0),
-                                          if (comment.createdTime != null)
-                                            Text(timeago.format(comment.createdTime!),
-                                                style: FlutterFlowTheme.of(ctx).labelSmall.override(
-                                                      font: GoogleFonts.inter(),
-                                                      color: FlutterFlowTheme.of(ctx).secondaryText,
-                                                      letterSpacing: 0.0)),
-                                        ],
-                                      ),
-                                      SizedBox(height: 2.0),
-                                      Text(comment.text,
-                                          style: FlutterFlowTheme.of(ctx).bodyMedium.override(
-                                                font: GoogleFonts.inter(),
-                                                letterSpacing: 0.0)),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      );
+                      final docs = snapshot.data!.docs;
+                      return _buildCommentsList(ctx, docs, scrollController);
                     },
                   ),
                 ),
