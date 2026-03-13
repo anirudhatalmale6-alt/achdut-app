@@ -1,0 +1,2 @@
+/var/lib/freelancer/projects/40284693/achdut/achdut/android/app/.cxx/RelWithDebInfo/q2j1zs1u/x86/CMakeFiles/edit_cache.dir
+/var/lib/freelancer/projects/40284693/achdut/achdut/android/app/.cxx/RelWithDebInfo/q2j1zs1u/x86/CMakeFiles/rebuild_cache.dir

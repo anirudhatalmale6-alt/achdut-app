@@ -1,0 +1,28 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.achdut.app-mergeReleaseResources-53:/values-night-v31/values-night-v31.xml",
+            "map": [
+                {
+                    "source": "/var/lib/freelancer/projects/40284693/achdut/achdut/android/app/src/main/res/values-night-v31/styles.xml",
+                    "from": {
+                        "startLines": "3,15",
+                        "startColumns": "4,4",
+                        "startOffsets": "172,890",
+                        "endLines": "8,18",
+                        "endColumns": "12,12",
+                        "endOffsets": "539,1129"
+                    },
+                    "to": {
+                        "startLines": "2,7",
+                        "startColumns": "4,4",
+                        "startOffsets": "55,311",
+                        "endLines": "6,10",
+                        "endColumns": "12,12",
+                        "endOffsets": "306,550"
+                    }
+                }
+            ]
+        }
+    ]
+}

@@ -73,6 +73,41 @@ class _PosteWidgetState extends State<PosteWidget> {
     }
   }
 
+  Future<void> _deleteComment(BuildContext ctx, DocumentSnapshot doc) async {
+    final data = doc.data() as Map<String, dynamic>;
+    final commentUserUid = data['user_uid'] as String? ?? '';
+    if (commentUserUid != currentUserUid) return;
+
+    final confirmed = await showDialog<bool>(
+      context: ctx,
+      builder: (dialogCtx) => AlertDialog(
+        title: Text('Delete Comment'),
+        content: Text('Are you sure you want to delete this comment?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogCtx).pop(false),
+            child: Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogCtx).pop(true),
+            child: Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      // Delete image from Storage if present
+      final imageUrl = data['image_url'] as String? ?? '';
+      if (imageUrl.isNotEmpty) {
+        try {
+          await FirebaseStorage.instance.refFromURL(imageUrl).delete();
+        } catch (_) {}
+      }
+      await doc.reference.delete();
+    }
+  }
+
   Widget _buildCommentsList(BuildContext ctx, List<DocumentSnapshot> docs, ScrollController scrollController) {
     if (docs.isEmpty) {
       return Center(
@@ -103,66 +138,90 @@ class _PosteWidgetState extends State<PosteWidget> {
         final text = data['text'] as String? ?? '';
         final createdTime = data['created_time'] as Timestamp?;
         final commentImageUrl = data['image_url'] as String? ?? '';
+        final commentUserUid = data['user_uid'] as String? ?? '';
+        final isOwnComment = commentUserUid == currentUserUid;
 
-        return Padding(
-          padding: EdgeInsets.symmetric(vertical: 6.0),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 32.0, height: 32.0,
-                clipBehavior: Clip.antiAlias,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: FlutterFlowTheme.of(ctx).alternate,
+        return GestureDetector(
+          onLongPress: isOwnComment ? () => _deleteComment(ctx, docs[i]) : null,
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: 6.0),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 32.0, height: 32.0,
+                  clipBehavior: Clip.antiAlias,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: FlutterFlowTheme.of(ctx).alternate,
+                  ),
+                  child: userPhoto.isNotEmpty
+                      ? Image.network(userPhoto, fit: BoxFit.cover)
+                      : Icon(Icons.person,
+                          color: FlutterFlowTheme.of(ctx).secondaryText,
+                          size: 18.0),
                 ),
-                child: userPhoto.isNotEmpty
-                    ? Image.network(userPhoto, fit: BoxFit.cover)
-                    : Icon(Icons.person,
-                        color: FlutterFlowTheme.of(ctx).secondaryText,
-                        size: 18.0),
-              ),
-              SizedBox(width: 8.0),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(userName,
-                            style: FlutterFlowTheme.of(ctx).bodySmall.override(
-                                  font: GoogleFonts.inter(fontWeight: FontWeight.w600),
-                                  letterSpacing: 0.0,
-                                  fontWeight: FontWeight.w600)),
-                        SizedBox(width: 8.0),
-                        if (createdTime != null)
-                          Text(timeago.format(createdTime.toDate()),
-                              style: FlutterFlowTheme.of(ctx).labelSmall.override(
-                                    font: GoogleFonts.inter(),
+                SizedBox(width: 8.0),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Flexible(
+                                  child: Text(userName,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: FlutterFlowTheme.of(ctx).bodySmall.override(
+                                            font: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                                            letterSpacing: 0.0,
+                                            fontWeight: FontWeight.w600)),
+                                ),
+                                SizedBox(width: 8.0),
+                                if (createdTime != null)
+                                  Text(timeago.format(createdTime.toDate()),
+                                      style: FlutterFlowTheme.of(ctx).labelSmall.override(
+                                            font: GoogleFonts.inter(),
+                                            color: FlutterFlowTheme.of(ctx).secondaryText,
+                                            letterSpacing: 0.0)),
+                              ],
+                            ),
+                          ),
+                          if (isOwnComment)
+                            GestureDetector(
+                              onTap: () => _deleteComment(ctx, docs[i]),
+                              child: Padding(
+                                padding: EdgeInsets.only(left: 4.0),
+                                child: Icon(Icons.delete_outline_rounded,
                                     color: FlutterFlowTheme.of(ctx).secondaryText,
-                                    letterSpacing: 0.0)),
-                      ],
-                    ),
-                    if (text.isNotEmpty) ...[
-                      SizedBox(height: 2.0),
-                      Text(text,
-                          style: FlutterFlowTheme.of(ctx).bodyMedium.override(
-                                font: GoogleFonts.inter(),
-                                letterSpacing: 0.0)),
-                    ],
-                    if (commentImageUrl.isNotEmpty)
-                      Padding(
-                        padding: EdgeInsets.only(top: 6.0),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(8.0),
-                          child: Image.network(commentImageUrl,
-                              width: 200.0, fit: BoxFit.cover),
-                        ),
+                                    size: 16.0),
+                              ),
+                            ),
+                        ],
                       ),
-                  ],
+                      if (text.isNotEmpty) ...[
+                        SizedBox(height: 2.0),
+                        Text(text,
+                            style: FlutterFlowTheme.of(ctx).bodyMedium.override(
+                                  font: GoogleFonts.inter(),
+                                  letterSpacing: 0.0)),
+                      ],
+                      if (commentImageUrl.isNotEmpty)
+                        Padding(
+                          padding: EdgeInsets.only(top: 6.0),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8.0),
+                            child: Image.network(commentImageUrl,
+                                width: 200.0, fit: BoxFit.cover),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },
@@ -177,8 +236,9 @@ class _PosteWidgetState extends State<PosteWidget> {
     Future<String?> uploadCommentImage(File file) async {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final ref = FirebaseStorage.instance
-          .ref().child('comments').child(currentUserUid).child('comment_$timestamp.jpg');
-      await ref.putFile(file);
+          .ref().child('users').child(currentUserUid).child('comments').child('comment_$timestamp.jpg');
+      final metadata = SettableMetadata(contentType: 'image/jpeg');
+      await ref.putFile(file, metadata);
       return await ref.getDownloadURL();
     }
 
@@ -411,6 +471,14 @@ class _PosteWidgetState extends State<PosteWidget> {
                                     });
                                   } catch (e) {
                                     setLocalState(() => isSending = false);
+                                    if (ctx.mounted) {
+                                      ScaffoldMessenger.of(ctx).showSnackBar(
+                                        SnackBar(
+                                          content: Text('Failed to send comment. Please try again.'),
+                                          backgroundColor: Colors.red,
+                                        ),
+                                      );
+                                    }
                                   }
                                 },
                               ),

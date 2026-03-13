@@ -1,0 +1,1 @@
+/var/lib/freelancer/projects/40284693/achdut/achdut/build/app/intermediates/cxx/RelWithDebInfo/q2j1zs1u/obj/armeabi-v7a

@@ -1,0 +1,10 @@
+#Fri Mar 13 09:04:51 UTC 2026
+base.2=/var/lib/freelancer/projects/40284693/achdut/achdut/build/app/intermediates/dex/release/minifyReleaseWithR8/classes2.dex
+path.2=classes2.dex
+base.1=/var/lib/freelancer/projects/40284693/achdut/achdut/build/app/intermediates/desugar_lib_dex/release/l8DexDesugarLibRelease/classes1000.dex
+path.1=classes1000.dex
+base.0=/var/lib/freelancer/projects/40284693/achdut/achdut/build/app/intermediates/dex/release/minifyReleaseWithR8/classes.dex
+renamed.2=classes3.dex
+renamed.1=classes2.dex
+renamed.0=classes.dex
+path.0=classes.dex
