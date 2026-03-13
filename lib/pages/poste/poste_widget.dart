@@ -211,10 +211,54 @@ class _PosteWidgetState extends State<PosteWidget> {
                       if (commentImageUrl.isNotEmpty)
                         Padding(
                           padding: EdgeInsets.only(top: 6.0),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(8.0),
-                            child: Image.network(commentImageUrl,
-                                width: 200.0, fit: BoxFit.cover),
+                          child: Stack(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(8.0),
+                                child: Image.network(commentImageUrl,
+                                    width: 200.0, fit: BoxFit.cover),
+                              ),
+                              if (isOwnComment)
+                                Positioned(
+                                  top: 4.0, right: 4.0,
+                                  child: GestureDetector(
+                                    onTap: () async {
+                                      final confirmed = await showDialog<bool>(
+                                        context: ctx,
+                                        builder: (dCtx) => AlertDialog(
+                                          title: Text('Remove Image'),
+                                          content: Text('Remove the image from this comment?'),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () => Navigator.of(dCtx).pop(false),
+                                              child: Text('Cancel'),
+                                            ),
+                                            TextButton(
+                                              onPressed: () => Navigator.of(dCtx).pop(true),
+                                              child: Text('Remove', style: TextStyle(color: Colors.red)),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                      if (confirmed == true) {
+                                        try {
+                                          await FirebaseStorage.instance.refFromURL(commentImageUrl).delete();
+                                        } catch (_) {}
+                                        await docs[i].reference.update({'image_url': FieldValue.delete()});
+                                      }
+                                    },
+                                    child: Container(
+                                      width: 24.0, height: 24.0,
+                                      decoration: BoxDecoration(
+                                        color: Color(0xCC000000),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(Icons.close_rounded,
+                                          color: Colors.white, size: 14.0),
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
                     ],
@@ -235,10 +279,12 @@ class _PosteWidgetState extends State<PosteWidget> {
 
     Future<String?> uploadCommentImage(File file) async {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final ref = FirebaseStorage.instance
-          .ref().child('users').child(currentUserUid).child('comments').child('comment_$timestamp.jpg');
+      final uid = currentUserUid;
+      final storagePath = 'users/$uid/comments/comment_$timestamp.jpg';
+      final ref = FirebaseStorage.instance.ref().child(storagePath);
       final metadata = SettableMetadata(contentType: 'image/jpeg');
-      await ref.putFile(file, metadata);
+      final bytes = await file.readAsBytes();
+      await ref.putData(bytes, metadata);
       return await ref.getDownloadURL();
     }
 
@@ -472,10 +518,17 @@ class _PosteWidgetState extends State<PosteWidget> {
                                   } catch (e) {
                                     setLocalState(() => isSending = false);
                                     if (ctx.mounted) {
-                                      ScaffoldMessenger.of(ctx).showSnackBar(
-                                        SnackBar(
-                                          content: Text('Failed to send comment. Please try again.'),
-                                          backgroundColor: Colors.red,
+                                      showDialog(
+                                        context: ctx,
+                                        builder: (dCtx) => AlertDialog(
+                                          title: Text('Error'),
+                                          content: Text('Failed to send comment: ${e.toString().length > 150 ? e.toString().substring(0, 150) : e.toString()}'),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () => Navigator.of(dCtx).pop(),
+                                              child: Text('OK'),
+                                            ),
+                                          ],
                                         ),
                                       );
                                     }
