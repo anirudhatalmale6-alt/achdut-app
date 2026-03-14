@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'dart:io';
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:timeago/timeago.dart' as timeago;
@@ -215,8 +216,12 @@ class _PosteWidgetState extends State<PosteWidget> {
                             children: [
                               ClipRRect(
                                 borderRadius: BorderRadius.circular(8.0),
-                                child: Image.network(commentImageUrl,
-                                    width: 200.0, fit: BoxFit.cover),
+                                child: commentImageUrl.startsWith('data:')
+                                    ? Image.memory(
+                                        base64Decode(commentImageUrl.split(',').last),
+                                        width: 200.0, fit: BoxFit.cover)
+                                    : Image.network(commentImageUrl,
+                                        width: 200.0, fit: BoxFit.cover),
                               ),
                               if (isOwnComment)
                                 Positioned(
@@ -241,9 +246,11 @@ class _PosteWidgetState extends State<PosteWidget> {
                                         ),
                                       );
                                       if (confirmed == true) {
-                                        try {
-                                          await FirebaseStorage.instance.refFromURL(commentImageUrl).delete();
-                                        } catch (_) {}
+                                        if (!commentImageUrl.startsWith('data:')) {
+                                          try {
+                                            await FirebaseStorage.instance.refFromURL(commentImageUrl).delete();
+                                          } catch (_) {}
+                                        }
                                         await docs[i].reference.update({'image_url': FieldValue.delete()});
                                       }
                                     },
@@ -277,15 +284,10 @@ class _PosteWidgetState extends State<PosteWidget> {
     File? commentImage;
     bool isSending = false;
 
-    Future<String?> uploadCommentImage(File file) async {
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final uid = currentUserUid;
-      final storagePath = 'users/$uid/comments/comment_$timestamp.jpg';
-      final ref = FirebaseStorage.instance.ref().child(storagePath);
-      final metadata = SettableMetadata(contentType: 'image/jpeg');
+    Future<String?> encodeCommentImage(File file) async {
       final bytes = await file.readAsBytes();
-      await ref.putData(bytes, metadata);
-      return await ref.getDownloadURL();
+      final base64Str = base64Encode(bytes);
+      return 'data:image/jpeg;base64,$base64Str';
     }
 
     showModalBottomSheet(
@@ -495,7 +497,7 @@ class _PosteWidgetState extends State<PosteWidget> {
                                   try {
                                     String? imgUrl;
                                     if (commentImage != null) {
-                                      imgUrl = await uploadCommentImage(commentImage!);
+                                      imgUrl = await encodeCommentImage(commentImage!);
                                     }
                                     await CommentsRecord.collection.doc().set(
                                       createCommentsRecordData(
