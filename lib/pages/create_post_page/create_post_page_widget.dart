@@ -148,6 +148,7 @@ class _CreatePostPageWidgetState extends State<CreatePostPageWidget> {
               : currentUserEmail,
           content: _model.textController.text,
           creatorUid: currentUserUid,
+          creatorPhoto: currentUserPhoto,
           imageUrl: imageUrl,
           videoUrl: videoUrl,
           visibility: _visibility,
@@ -155,6 +156,7 @@ class _CreatePostPageWidgetState extends State<CreatePostPageWidget> {
           likes: 0,
         ),
         'liked_by': [],
+        'saved_by': [],
       });
       if (mounted) context.safePop();
     } catch (e) {

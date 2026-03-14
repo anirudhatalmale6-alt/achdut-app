@@ -71,6 +71,16 @@ class PostsRecord extends FirestoreRecord {
   String get linkUrl => _linkUrl ?? '';
   bool hasLinkUrl() => _linkUrl != null;
 
+  // "saved_by" field - list of UIDs who bookmarked this post.
+  List<String>? _savedBy;
+  List<String> get savedBy => _savedBy ?? const [];
+  bool hasSavedBy() => _savedBy != null;
+
+  // "creator_photo" field.
+  String? _creatorPhoto;
+  String get creatorPhoto => _creatorPhoto ?? '';
+  bool hasCreatorPhoto() => _creatorPhoto != null;
+
   void _initializeFields() {
     _createdTime = snapshotData['created_time'] as DateTime?;
     _title = snapshotData['title'] as String?;
@@ -83,6 +93,8 @@ class PostsRecord extends FirestoreRecord {
     _videoUrl = snapshotData['video_url'] as String?;
     _visibility = snapshotData['visibility'] as String?;
     _linkUrl = snapshotData['link_url'] as String?;
+    _savedBy = getDataList(snapshotData['saved_by']);
+    _creatorPhoto = snapshotData['creator_photo'] as String?;
   }
 
   static CollectionReference get collection =>
@@ -129,6 +141,7 @@ Map<String, dynamic> createPostsRecordData({
   String? videoUrl,
   String? visibility,
   String? linkUrl,
+  String? creatorPhoto,
 }) {
   final firestoreData = mapToFirestore(
     <String, dynamic>{
@@ -142,6 +155,7 @@ Map<String, dynamic> createPostsRecordData({
       'video_url': videoUrl,
       'visibility': visibility,
       'link_url': linkUrl,
+      'creator_photo': creatorPhoto,
     }.withoutNulls,
   );
 

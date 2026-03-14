@@ -50,6 +50,186 @@ class _PosteWidgetState extends State<PosteWidget> {
     super.dispose();
   }
 
+  Future<void> _toggleSave(PostsRecord post) async {
+    final uid = currentUserUid;
+    final savedBy = List<String>.from(post.savedBy);
+    final isSaved = savedBy.contains(uid);
+
+    if (isSaved) {
+      savedBy.remove(uid);
+    } else {
+      savedBy.add(uid);
+    }
+
+    await post.reference.update({'saved_by': savedBy});
+  }
+
+  Future<void> _deletePost(BuildContext ctx, PostsRecord post) async {
+    if (post.creatorUid != currentUserUid) return;
+
+    final confirmed = await showDialog<bool>(
+      context: ctx,
+      builder: (dCtx) => AlertDialog(
+        title: Text('Delete Post'),
+        content: Text('Are you sure you want to delete this post?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dCtx).pop(false),
+            child: Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dCtx).pop(true),
+            child: Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      // Delete post image from Storage if present
+      if (post.imageUrl.isNotEmpty) {
+        try {
+          await FirebaseStorage.instance.refFromURL(post.imageUrl).delete();
+        } catch (_) {}
+      }
+      // Delete all comments for this post
+      final comments = await FirebaseFirestore.instance
+          .collection('comments')
+          .where('post_id', isEqualTo: post.reference.id)
+          .get();
+      for (final doc in comments.docs) {
+        await doc.reference.delete();
+      }
+      await post.reference.delete();
+    }
+  }
+
+  Widget _buildStoriesRow(BuildContext context) {
+    return Container(
+      height: 100.0,
+      padding: EdgeInsets.symmetric(vertical: 8.0),
+      child: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('connections')
+            .where('status', isEqualTo: 'accepted')
+            .where('from_uid', isEqualTo: currentUserUid)
+            .snapshots(),
+        builder: (context, fromSnap) {
+          return StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('connections')
+                .where('status', isEqualTo: 'accepted')
+                .where('to_uid', isEqualTo: currentUserUid)
+                .snapshots(),
+            builder: (context, toSnap) {
+              final connectedUids = <String>{};
+              if (fromSnap.hasData) {
+                for (final doc in fromSnap.data!.docs) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  connectedUids.add(data['to_uid'] as String? ?? '');
+                }
+              }
+              if (toSnap.hasData) {
+                for (final doc in toSnap.data!.docs) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  connectedUids.add(data['from_uid'] as String? ?? '');
+                }
+              }
+              connectedUids.remove('');
+
+              if (connectedUids.isEmpty) {
+                return ListView(
+                  scrollDirection: Axis.horizontal,
+                  padding: EdgeInsets.symmetric(horizontal: 12.0),
+                  children: [
+                    _buildStoryCircle(context, 'You', currentUserPhoto, true),
+                  ],
+                );
+              }
+
+              return StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('users')
+                    .where('uid', whereIn: connectedUids.take(10).toList())
+                    .snapshots(),
+                builder: (context, usersSnap) {
+                  final users = usersSnap.data?.docs ?? [];
+                  return ListView(
+                    scrollDirection: Axis.horizontal,
+                    padding: EdgeInsets.symmetric(horizontal: 12.0),
+                    children: [
+                      _buildStoryCircle(context, 'You', currentUserPhoto, true),
+                      ...users.map((doc) {
+                        final data = doc.data() as Map<String, dynamic>;
+                        final name = (data['display_name'] as String? ?? '').split(' ').first;
+                        final photo = data['photo_url'] as String? ?? '';
+                        return _buildStoryCircle(context, name.isNotEmpty ? name : 'User', photo, false);
+                      }),
+                    ],
+                  );
+                },
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildStoryCircle(BuildContext ctx, String name, String photoUrl, bool isCurrentUser) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 6.0),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 60.0, height: 60.0,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                colors: [Color(0xFFDE0046), Color(0xFFF7A34B)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            padding: EdgeInsets.all(2.0),
+            child: Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: FlutterFlowTheme.of(ctx).primaryBackground,
+              ),
+              padding: EdgeInsets.all(2.0),
+              child: Container(
+                clipBehavior: Clip.antiAlias,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: FlutterFlowTheme.of(ctx).alternate,
+                ),
+                child: photoUrl.isNotEmpty
+                    ? Image.network(photoUrl, fit: BoxFit.cover)
+                    : Icon(Icons.person,
+                        color: FlutterFlowTheme.of(ctx).secondaryText,
+                        size: 28.0),
+              ),
+            ),
+          ),
+          SizedBox(height: 4.0),
+          SizedBox(
+            width: 64.0,
+            child: Text(name,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: FlutterFlowTheme.of(ctx).labelSmall.override(
+                      font: GoogleFonts.inter(),
+                      letterSpacing: 0.0,
+                      fontSize: 11.0)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _toggleLike(PostsRecord post) async {
     final uid = currentUserUid;
     final likedBy = List<String>.from(post.likedBy);
@@ -741,6 +921,13 @@ class _PosteWidgetState extends State<PosteWidget> {
               thickness: 1.0,
               color: FlutterFlowTheme.of(context).alternate,
             ),
+            // Stories row
+            _buildStoriesRow(context),
+            Divider(
+              height: 1.0,
+              thickness: 1.0,
+              color: FlutterFlowTheme.of(context).alternate,
+            ),
             Expanded(
               child: StreamBuilder<List<PostsRecord>>(
                 stream: queryPostsRecord(
@@ -815,41 +1002,35 @@ class _PosteWidgetState extends State<PosteWidget> {
                     itemBuilder: (context, listViewIndex) {
                       final post = listViewPostsRecordList[listViewIndex];
                       final isLiked = post.likedBy.contains(currentUserUid);
+                      final isSaved = post.savedBy.contains(currentUserUid);
+                      final isOwnPost = post.creatorUid == currentUserUid;
 
-                      return Padding(
-                        padding: EdgeInsetsDirectional.fromSTEB(
-                            16.0, 12.0, 16.0, 12.0),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisSize: MainAxisSize.max,
+                      return Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Post header — Instagram style
+                          Padding(
+                            padding: EdgeInsets.fromLTRB(12.0, 10.0, 4.0, 8.0),
+                            child: Row(
                               children: [
                                 Container(
-                                  width: 40.0,
-                                  height: 40.0,
+                                  width: 36.0, height: 36.0,
+                                  clipBehavior: Clip.antiAlias,
                                   decoration: BoxDecoration(
-                                    color: FlutterFlowTheme.of(context)
-                                        .alternate,
                                     shape: BoxShape.circle,
+                                    color: FlutterFlowTheme.of(context).alternate,
                                   ),
-                                  child: Align(
-                                    alignment: AlignmentDirectional(0.0, 0.0),
-                                    child: Icon(
-                                      Icons.person,
-                                      color: FlutterFlowTheme.of(context)
-                                          .secondaryText,
-                                      size: 22.0,
-                                    ),
-                                  ),
+                                  child: post.creatorPhoto.isNotEmpty
+                                      ? Image.network(post.creatorPhoto, fit: BoxFit.cover)
+                                      : Icon(Icons.person,
+                                          color: FlutterFlowTheme.of(context).secondaryText,
+                                          size: 20.0),
                                 ),
                                 SizedBox(width: 10.0),
                                 Expanded(
                                   child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         post.createBy.isNotEmpty
@@ -858,9 +1039,7 @@ class _PosteWidgetState extends State<PosteWidget> {
                                         style: FlutterFlowTheme.of(context)
                                             .bodyMedium
                                             .override(
-                                              font: GoogleFonts.inter(
-                                                fontWeight: FontWeight.w600,
-                                              ),
+                                              font: GoogleFonts.inter(fontWeight: FontWeight.w600),
                                               letterSpacing: 0.0,
                                               fontWeight: FontWeight.w600,
                                             ),
@@ -891,192 +1070,207 @@ class _PosteWidgetState extends State<PosteWidget> {
                                     ],
                                   ),
                                 ),
+                                if (isOwnPost)
+                                  PopupMenuButton<String>(
+                                    icon: Icon(Icons.more_vert_rounded,
+                                        color: FlutterFlowTheme.of(context).secondaryText),
+                                    onSelected: (value) {
+                                      if (value == 'delete') {
+                                        _deletePost(context, post);
+                                      }
+                                    },
+                                    itemBuilder: (_) => [
+                                      PopupMenuItem(
+                                        value: 'delete',
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.delete_outline_rounded, color: Colors.red, size: 20.0),
+                                            SizedBox(width: 8.0),
+                                            Text('Delete Post', style: TextStyle(color: Colors.red)),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                               ],
                             ),
-                            if (post.content.isNotEmpty)
-                              Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(
-                                    0.0, 10.0, 0.0, 0.0),
-                                child: Text(
-                                  post.content,
-                                  style: FlutterFlowTheme.of(context)
-                                      .bodyMedium
-                                      .override(
-                                        font: GoogleFonts.inter(),
-                                        letterSpacing: 0.0,
-                                      ),
-                                ),
-                              ),
-                            // Post image
-                            if (post.imageUrl.isNotEmpty)
-                              Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(
-                                    0.0, 10.0, 0.0, 0.0),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(12.0),
-                                  child: Image.network(
-                                    post.imageUrl,
-                                    width: double.infinity,
-                                    height: 220.0,
-                                    fit: BoxFit.cover,
-                                  ),
-                                ),
-                              ),
-                            // Post video
-                            if (post.videoUrl.isNotEmpty)
-                              Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(0.0, 10.0, 0.0, 0.0),
-                                child: _VideoPlayerWidget(url: post.videoUrl),
-                              ),
-                            // Post link
-                            if (post.linkUrl.isNotEmpty)
-                              Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(0.0, 10.0, 0.0, 0.0),
-                                child: GestureDetector(
-                                  onTap: () async {
-                                    final uri = Uri.tryParse(post.linkUrl);
-                                    if (uri != null && await canLaunchUrl(uri)) {
-                                      await launchUrl(uri, mode: LaunchMode.externalApplication);
-                                    }
-                                  },
-                                  child: Container(
-                                    width: double.infinity,
-                                    padding: EdgeInsets.all(12.0),
-                                    decoration: BoxDecoration(
-                                      color: FlutterFlowTheme.of(context).accent1,
-                                      borderRadius: BorderRadius.circular(12.0),
-                                      border: Border.all(
-                                          color: FlutterFlowTheme.of(context).primary.withOpacity(0.3)),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Icon(Icons.link_rounded,
-                                            color: FlutterFlowTheme.of(context).primary, size: 20.0),
-                                        SizedBox(width: 8.0),
-                                        Expanded(
-                                          child: Text(post.linkUrl,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: FlutterFlowTheme.of(context).bodySmall.override(
-                                                    font: GoogleFonts.inter(),
-                                                    color: FlutterFlowTheme.of(context).primary,
-                                                    letterSpacing: 0.0)),
-                                        ),
-                                        Icon(Icons.open_in_new_rounded,
-                                            color: FlutterFlowTheme.of(context).primary, size: 16.0),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            if (post.title.isNotEmpty)
-                              Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(
-                                    0.0, 6.0, 0.0, 0.0),
-                                child: Text(
-                                  post.title,
-                                  style: FlutterFlowTheme.of(context)
-                                      .titleSmall
-                                      .override(
-                                        font: GoogleFonts.interTight(
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                        letterSpacing: 0.0,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                ),
-                              ),
-                            // Action buttons
+                          ),
+                          // Post image — full width, no padding (Instagram style)
+                          if (post.imageUrl.isNotEmpty)
+                            Image.network(
+                              post.imageUrl,
+                              width: double.infinity,
+                              fit: BoxFit.cover,
+                            ),
+                          // Post video
+                          if (post.videoUrl.isNotEmpty)
+                            _VideoPlayerWidget(url: post.videoUrl),
+                          // Post link
+                          if (post.linkUrl.isNotEmpty)
                             Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
-                                  0.0, 10.0, 0.0, 0.0),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.max,
-                                children: [
-                                  // Like button
-                                  GestureDetector(
-                                    onTap: () => _toggleLike(post),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          isLiked
-                                              ? Icons.favorite_rounded
-                                              : Icons.favorite_border_rounded,
-                                          color: isLiked
-                                              ? Colors.red
-                                              : FlutterFlowTheme.of(context)
-                                                  .secondaryText,
-                                          size: 20.0,
-                                        ),
-                                        SizedBox(width: 4.0),
-                                        Text(
-                                          '${post.likes}',
-                                          style: FlutterFlowTheme.of(context)
-                                              .labelMedium
-                                              .override(
-                                                font: GoogleFonts.inter(),
-                                                color: isLiked
-                                                    ? Colors.red
-                                                    : FlutterFlowTheme.of(
-                                                            context)
-                                                        .secondaryText,
-                                                letterSpacing: 0.0,
-                                              ),
-                                        ),
-                                      ],
-                                    ),
+                              padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
+                              child: GestureDetector(
+                                onTap: () async {
+                                  final uri = Uri.tryParse(post.linkUrl);
+                                  if (uri != null && await canLaunchUrl(uri)) {
+                                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                  }
+                                },
+                                child: Container(
+                                  width: double.infinity,
+                                  padding: EdgeInsets.all(12.0),
+                                  decoration: BoxDecoration(
+                                    color: FlutterFlowTheme.of(context).accent1,
+                                    borderRadius: BorderRadius.circular(8.0),
+                                    border: Border.all(
+                                        color: FlutterFlowTheme.of(context).primary.withOpacity(0.3)),
                                   ),
-                                  SizedBox(width: 20.0),
-                                  // Comment button with count
-                                  GestureDetector(
-                                    onTap: () => _showComments(context, post),
-                                    child: StreamBuilder<QuerySnapshot>(
-                                      stream: FirebaseFirestore.instance
-                                          .collection('comments')
-                                          .where('post_id', isEqualTo: post.reference.id)
-                                          .snapshots(),
-                                      builder: (context, commentSnap) {
-                                        final count = commentSnap.hasData ? commentSnap.data!.docs.length : 0;
-                                        return Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(
-                                              Icons.chat_bubble_outline_rounded,
-                                              color: FlutterFlowTheme.of(context).secondaryText,
-                                              size: 20.0,
-                                            ),
-                                            if (count > 0) ...[
-                                              SizedBox(width: 4.0),
-                                              Text(
-                                                '$count',
-                                                style: FlutterFlowTheme.of(context).labelMedium.override(
-                                                      font: GoogleFonts.inter(),
-                                                      color: FlutterFlowTheme.of(context).secondaryText,
-                                                      letterSpacing: 0.0),
-                                              ),
-                                            ],
-                                          ],
-                                        );
-                                      },
-                                    ),
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.link_rounded,
+                                          color: FlutterFlowTheme.of(context).primary, size: 20.0),
+                                      SizedBox(width: 8.0),
+                                      Expanded(
+                                        child: Text(post.linkUrl,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: FlutterFlowTheme.of(context).bodySmall.override(
+                                                  font: GoogleFonts.inter(),
+                                                  color: FlutterFlowTheme.of(context).primary,
+                                                  letterSpacing: 0.0)),
+                                      ),
+                                      Icon(Icons.open_in_new_rounded,
+                                          color: FlutterFlowTheme.of(context).primary, size: 16.0),
+                                    ],
                                   ),
-                                  SizedBox(width: 20.0),
-                                  // Share button
-                                  GestureDetector(
-                                    onTap: () => _sharePost(post),
-                                    child: Icon(
-                                      Icons.share_outlined,
-                                      color: FlutterFlowTheme.of(context)
-                                          .secondaryText,
-                                      size: 20.0,
-                                    ),
-                                  ),
-                                ],
+                                ),
                               ),
                             ),
-                          ],
-                        ),
+                          // Action buttons — Instagram style
+                          Padding(
+                            padding: EdgeInsets.fromLTRB(12.0, 10.0, 12.0, 0.0),
+                            child: Row(
+                              children: [
+                                // Like button
+                                GestureDetector(
+                                  onTap: () => _toggleLike(post),
+                                  child: Icon(
+                                    isLiked
+                                        ? Icons.favorite_rounded
+                                        : Icons.favorite_border_rounded,
+                                    color: isLiked
+                                        ? Colors.red
+                                        : FlutterFlowTheme.of(context).primaryText,
+                                    size: 26.0,
+                                  ),
+                                ),
+                                SizedBox(width: 16.0),
+                                // Comment button
+                                GestureDetector(
+                                  onTap: () => _showComments(context, post),
+                                  child: Icon(
+                                    Icons.chat_bubble_outline_rounded,
+                                    color: FlutterFlowTheme.of(context).primaryText,
+                                    size: 24.0,
+                                  ),
+                                ),
+                                SizedBox(width: 16.0),
+                                // Share button
+                                GestureDetector(
+                                  onTap: () => _sharePost(post),
+                                  child: Icon(
+                                    Icons.send_outlined,
+                                    color: FlutterFlowTheme.of(context).primaryText,
+                                    size: 24.0,
+                                  ),
+                                ),
+                                Spacer(),
+                                // Bookmark button
+                                GestureDetector(
+                                  onTap: () => _toggleSave(post),
+                                  child: Icon(
+                                    isSaved
+                                        ? Icons.bookmark_rounded
+                                        : Icons.bookmark_border_rounded,
+                                    color: FlutterFlowTheme.of(context).primaryText,
+                                    size: 26.0,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          // Likes count
+                          if (post.likes > 0)
+                            Padding(
+                              padding: EdgeInsets.fromLTRB(12.0, 6.0, 12.0, 0.0),
+                              child: Text(
+                                '${post.likes} like${post.likes == 1 ? '' : 's'}',
+                                style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                      font: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                                      letterSpacing: 0.0,
+                                      fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                          // Post content text — below the image (Instagram style)
+                          if (post.content.isNotEmpty)
+                            Padding(
+                              padding: EdgeInsets.fromLTRB(12.0, 4.0, 12.0, 0.0),
+                              child: RichText(
+                                text: TextSpan(
+                                  children: [
+                                    TextSpan(
+                                      text: '${post.createBy.isNotEmpty ? post.createBy : 'Anonymous'} ',
+                                      style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                            font: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                                            letterSpacing: 0.0,
+                                            fontWeight: FontWeight.w600),
+                                    ),
+                                    TextSpan(
+                                      text: post.content,
+                                      style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                            font: GoogleFonts.inter(),
+                                            letterSpacing: 0.0),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          if (post.title.isNotEmpty && post.content.isEmpty)
+                            Padding(
+                              padding: EdgeInsets.fromLTRB(12.0, 4.0, 12.0, 0.0),
+                              child: Text(
+                                post.title,
+                                style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                      font: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                                      letterSpacing: 0.0,
+                                      fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                          // Comment count link
+                          StreamBuilder<QuerySnapshot>(
+                            stream: FirebaseFirestore.instance
+                                .collection('comments')
+                                .where('post_id', isEqualTo: post.reference.id)
+                                .snapshots(),
+                            builder: (context, commentSnap) {
+                              final count = commentSnap.hasData ? commentSnap.data!.docs.length : 0;
+                              if (count == 0) return SizedBox(height: 8.0);
+                              return GestureDetector(
+                                onTap: () => _showComments(context, post),
+                                child: Padding(
+                                  padding: EdgeInsets.fromLTRB(12.0, 4.0, 12.0, 8.0),
+                                  child: Text(
+                                    'View all $count comment${count == 1 ? '' : 's'}',
+                                    style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                          font: GoogleFonts.inter(),
+                                          color: FlutterFlowTheme.of(context).secondaryText,
+                                          letterSpacing: 0.0),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
                       );
                     },
                   );
