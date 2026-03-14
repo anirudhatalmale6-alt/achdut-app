@@ -1028,14 +1028,37 @@ class _PosteWidgetState extends State<PosteWidget> {
                                     ),
                                   ),
                                   SizedBox(width: 20.0),
-                                  // Comment button
+                                  // Comment button with count
                                   GestureDetector(
                                     onTap: () => _showComments(context, post),
-                                    child: Icon(
-                                      Icons.chat_bubble_outline_rounded,
-                                      color: FlutterFlowTheme.of(context)
-                                          .secondaryText,
-                                      size: 20.0,
+                                    child: StreamBuilder<QuerySnapshot>(
+                                      stream: FirebaseFirestore.instance
+                                          .collection('comments')
+                                          .where('post_id', isEqualTo: post.reference.id)
+                                          .snapshots(),
+                                      builder: (context, commentSnap) {
+                                        final count = commentSnap.hasData ? commentSnap.data!.docs.length : 0;
+                                        return Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              Icons.chat_bubble_outline_rounded,
+                                              color: FlutterFlowTheme.of(context).secondaryText,
+                                              size: 20.0,
+                                            ),
+                                            if (count > 0) ...[
+                                              SizedBox(width: 4.0),
+                                              Text(
+                                                '$count',
+                                                style: FlutterFlowTheme.of(context).labelMedium.override(
+                                                      font: GoogleFonts.inter(),
+                                                      color: FlutterFlowTheme.of(context).secondaryText,
+                                                      letterSpacing: 0.0),
+                                              ),
+                                            ],
+                                          ],
+                                        );
+                                      },
                                     ),
                                   ),
                                   SizedBox(width: 20.0),
